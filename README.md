@@ -1,4 +1,4 @@
-# CityStream (MBTA) — Starter Scaffold
+# CityStream (MBTA)
 
 Goal: Real-time pipeline for MBTA corridor forecasts with Kafka ingest, Spark streaming (Bronze→Silver), baseline quantile model, FastAPI serving, and a minimal deck.gl UI.
 

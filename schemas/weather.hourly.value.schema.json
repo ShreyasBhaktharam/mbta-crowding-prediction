@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "weather.hourly",
+  "type": "object",
+  "properties": {
+    "station_id": {"type": "string"},
+    "temp_c": {"type": ["number","null"]},
+    "wind_mps": {"type": ["number","null"]},
+    "precip_mm": {"type": ["number","null"]},
+    "condition": {"type": ["string","null"]},
+    "timestamp": {"type": "integer"},
+    "lat": {"type": ["number","null"]},
+    "lon": {"type": ["number","null"]}
+  },
+  "required": ["timestamp"]
+}
+

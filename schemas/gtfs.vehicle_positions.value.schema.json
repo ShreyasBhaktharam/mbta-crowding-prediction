@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "gtfs.vehicle_positions",
+  "type": "object",
+  "properties": {
+    "vehicle_id": {"type": "string"},
+    "route_id": {"type": "string"},
+    "trip_id": {"type": "string"},
+    "lat": {"type": "number"},
+    "lon": {"type": "number"},
+    "speed_mps": {"type": ["number", "null"]},
+    "timestamp": {"type": "integer"}
+  },
+  "required": ["vehicle_id","route_id","trip_id","lat","lon","timestamp"]
+}
+

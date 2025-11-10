@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "gtfs.trip_updates",
+  "type": "object",
+  "properties": {
+    "trip_id": {"type": "string"},
+    "stop_id": {"type": "string"},
+    "arrival_delay_s": {"type": "integer"},
+    "departure_delay_s": {"type": "integer"},
+    "timestamp": {"type": "integer"}
+  },
+  "required": ["trip_id","stop_id","timestamp"]
+}
+

@@ -1,0 +1,42 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.python-version
+.venv/
+venv/
+.pytest_cache/
+
+# Env
+.env
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Spark / Local metastore
+metastore_db/
+derby.log
+
+# Data outputs
+data/bronze/
+data/silver/
+data/chk/
+*.parquet
+
+# Models (generated)
+models/*.txt
+models/meta.json
+
+# Node (if ever used)
+node_modules/
+
+

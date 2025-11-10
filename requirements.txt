@@ -1,0 +1,16 @@
+confluent-kafka==2.5.3
+requests==2.32.3
+protobuf==5.28.2
+gtfs-realtime-bindings==1.0.0
+ujson==5.10.0
+pyspark==3.5.1
+h3==3.7.7
+pyarrow==17.0.0
+pandas==2.2.2
+numpy==1.26.4
+lightgbm==4.5.0
+scikit-learn==1.5.2
+fastapi==0.115.5
+uvicorn[standard]==0.32.0
+orjson==3.10.7
+

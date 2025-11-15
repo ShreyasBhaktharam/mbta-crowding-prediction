@@ -1,29 +1,56 @@
-SHELL := /bin/bash
+﻿SHELL := /bin/bash
+PYTHON ?= python3
+VENV ?= .venv
+SPARK_SUBMIT ?= PYSPARK_PYTHON=$$(which python) spark-submit
 
-.PHONY: up down topics bronze-vp bronze-tu silver
+.PHONY: bootstrap topics pollers bronze silver gold materialize_online train serve ui-build validate_data test lint mypy delta-optimize delta-vacuum
 
-up:
-	docker compose up -d
-
-down:
-	docker compose down -v
+bootstrap:
+	$(PYTHON) -m venv $(VENV)
+	source $(VENV)/bin/activate && pip install -U pip && pip install -r requirements.txt
 
 topics:
-	@echo "Creating topics..."
-	docker exec -it $$(docker ps -qf name=citystream-redpanda-1) rpk topic create \
-		gtfs.vehicle_positions gtfs.trip_updates weather.hourly events.city || true
+	docker compose exec redpanda rpk topic create \
+		gtfs.vehicle_positions \
+		gtfs.trip_updates \
+		weather.hourly || true
 
-bronze-vp:
-	PYSPARK_PYTHON=$$(which python) spark-submit \
-		--packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1 \
-		spark/bronze_to_silver.py --mode bronze --topic gtfs.vehicle_positions
+pollers:
+	$(PYTHON) pollers/mbta_gtfsrt_kafka.py & \
+	$(PYTHON) pollers/noaa_hourly_kafka.py & \
+	wait
 
-bronze-tu:
-	PYSPARK_PYTHON=$$(which python) spark-submit \
-		--packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1 \
-		spark/bronze_to_silver.py --mode bronze --topic gtfs.trip_updates
+bronze:
+	$(SPARK_SUBMIT) spark/bronze_to_silver.py --mode bronze --topic $${TOPIC:-gtfs.vehicle_positions}
 
 silver:
-	PYSPARK_PYTHON=$$(which python) spark-submit \
-		spark/bronze_to_silver.py --mode silver
+	$(SPARK_SUBMIT) spark/bronze_to_silver.py --mode silver
+
+gold:
+	$(SPARK_SUBMIT) spark/bronze_to_silver.py --mode gold --horizons 10 20 30
+
+materialize_online:
+	$(PYTHON) -m features.materialize_online
+
+train:
+	$(PYTHON) -m models.train --config $${CONFIG:-configs/gbt.yaml}
+
+serve:
+	uvicorn serve.app:app --host 0.0.0.0 --port 8000 --reload
+
+ui-build:
+	cd ui && npm install && npm run build
+
+validate_data:
+	$(PYTHON) spark/bronze_to_silver.py --mode validate
+
+test:
+	pytest
+
+lint:
+	ruff check .
+	black --check .
+
+mypy:
+	mypy features models serve spark
 

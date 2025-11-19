@@ -1,19 +1,13 @@
-﻿import { defineConfig, loadEnv } from 'vite';
+﻿import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import * as path from 'path';
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
-  return {
-    plugins: [react()],
-    define: {
-      __APP_ENV__: env.APP_ENV,
+// Avoid Node built-ins in browser bundle; let Vite resolve loaders.gl normally
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      child_process: path.resolve(__dirname, 'src/shims/empty.js'),
     },
-    server: {
-      port: 5173,
-      host: '0.0.0.0',
-    },
-    build: {
-      outDir: 'dist',
-    },
-  };
+  },
 });

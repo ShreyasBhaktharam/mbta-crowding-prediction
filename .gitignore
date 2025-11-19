@@ -30,6 +30,8 @@ derby.log
 data/bronze/
 data/silver/
 data/chk/
+data/checkpoints/
+data/dlq/
 *.parquet
 
 # Models (generated)

@@ -6,7 +6,7 @@ import os
 import threading
 import time
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 from fastapi import Depends, FastAPI, HTTPException
@@ -62,8 +62,8 @@ class PredictionResponse(BaseModel):
     horizon_min: int
     p50: float
     p90: float
-    p10: float | None = None
-    p95: float | None = None
+    p10: Optional[float] = None
+    p95: Optional[float] = None
 
 
 class ModelService:

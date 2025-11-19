@@ -20,7 +20,8 @@ def extract_tables(content: bytes, out_dir: str) -> None:
         for name in ["stops.txt", "shapes.txt", "trips.txt", "routes.txt", "stop_times.txt"]:
             if name in zf.namelist():
                 with zf.open(name) as f:
-                    df = pd.read_csv(f)
+                    # Read all columns as strings to avoid mixed-type issues when writing Parquet
+                    df = pd.read_csv(f, dtype=str, low_memory=False)
                     df.to_parquet(os.path.join(out_dir, name.replace(".txt", ".parquet")), index=False)
 
 

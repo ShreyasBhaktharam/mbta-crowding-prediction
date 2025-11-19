@@ -24,7 +24,7 @@ def build_spark_session(app_name: str = "citystream", extra_conf: Optional[Dict[
         .config("spark.sql.session.timeZone", "UTC")
         .config("spark.jars.packages", os.getenv(
             "SPARK_PACKAGES",
-            "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,io.delta:delta-core_2.12:3.2.0",
+            "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,io.delta:delta-spark_2.12:3.2.0",
         ))
     )
     if extra_conf:

@@ -1,6 +1,6 @@
 ﻿import DeckGL from '@deck.gl/react';
 import { ScatterplotLayer } from '@deck.gl/layers';
-import { StaticMap } from 'react-map-gl';
+import { Map } from 'react-map-gl';
 import { cellToLatLng } from 'h3-js';
 import type { CrowdingPoint, PredictionSelection } from '../types';
 
@@ -37,7 +37,7 @@ const MapView = ({ features, selection, onSelect }: Props) => {
 
   return (
     <DeckGL controller layers={layers} initialViewState={{ longitude: -71.0589, latitude: 42.3601, zoom: 11 }}>
-      <StaticMap mapboxAccessToken={MAPBOX_TOKEN} mapStyle="mapbox://styles/mapbox/light-v11" />
+      <Map mapboxAccessToken={MAPBOX_TOKEN} mapStyle="mapbox://styles/mapbox/light-v11" />
     </DeckGL>
   );
 };

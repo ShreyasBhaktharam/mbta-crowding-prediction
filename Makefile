@@ -1,7 +1,10 @@
 ﻿SHELL := /bin/bash
 PYTHON ?= python3
 VENV ?= .venv
-SPARK_SUBMIT ?= PYSPARK_PYTHON=$$(which python) spark-submit
+SPARK_SUBMIT ?= PYSPARK_PYTHON=$$(command -v python3 || command -v python) spark-submit \
+  --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,io.delta:delta-spark_2.12:3.2.0 \
+  --conf spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension \
+  --conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog
 
 .PHONY: bootstrap topics pollers bronze silver gold materialize_online train serve ui-build validate_data test lint mypy delta-optimize delta-vacuum
 

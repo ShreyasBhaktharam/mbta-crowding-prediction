@@ -7,6 +7,8 @@ from typing import Dict, Iterable, List, Optional
 
 import h3
 from great_expectations.dataset.sparkdf_dataset import SparkDFDataset
+from great_expectations.core.expectation_configuration import ExpectationConfiguration
+from great_expectations.core.expectation_suite import ExpectationSuite
 from pyspark.sql import DataFrame, SparkSession, functions as F, types as T
 from pyspark.sql.window import Window
 
@@ -86,6 +88,7 @@ class SilverTransformJob:
     data_root: str = field(default_factory=lambda: str(DEFAULT_DATA_ROOT))
     h3_resolution: int = 8
     gtfs_root: Optional[str] = None
+    process_date: Optional[str] = None
 
     def _bronze_table(self, topic: str) -> DataFrame:
         path = os.path.join(self.data_root, "bronze", topic)
@@ -97,17 +100,25 @@ class SilverTransformJob:
         return self.spark.read.parquet(path)
 
     def _h3_udf(self):
-        return F.udf(
-            lambda lat, lon: h3.geo_to_h3(lat, lon, self.h3_resolution)
-            if lat is not None and lon is not None
-            else None,
-            T.StringType(),
-        )
+        # Avoid capturing `self` in the UDF closure (which would drag SparkContext into workers)
+        resolution = int(self.h3_resolution)
+
+        def to_h3(lat, lon):
+            if lat is None or lon is None:
+                return None
+            return h3.geo_to_h3(lat, lon, resolution)
+
+        return F.udf(to_h3, T.StringType())
 
     def run(self) -> str:
         vp = self._bronze_table("gtfs.vehicle_positions")
         tu = self._bronze_table("gtfs.trip_updates")
         weather = self._bronze_table("weather.hourly")
+
+        if self.process_date:
+            vp = vp.filter(F.col("date") == F.lit(self.process_date))
+            tu = tu.filter(F.col("date") == F.lit(self.process_date))
+            weather = weather.filter(F.col("date") == F.lit(self.process_date))
 
         stop_times = self._load_gtfs("stop_times")
         stops = self._load_gtfs("stops")
@@ -119,7 +130,7 @@ class SilverTransformJob:
         )
 
         tu_curated = (
-            tu.withColumn("minute", F.date_trunc("minute", F.col("event_ts")))
+            tu.withColumn("tu_minute", F.date_trunc("minute", F.col("event_ts")))
             .withColumn("arrival_delay_s", F.col("arrival_delay_s").cast("double"))
             .withColumn("departure_delay_s", F.col("departure_delay_s").cast("double"))
         )
@@ -145,8 +156,16 @@ class SilverTransformJob:
         )
         enriched = enriched.join(weather_hourly, on="weather_hour", how="left")
 
-        stops_sel = stops.select("stop_id", F.col("stop_name").alias("origin_name"), F.col("parent_station"))
-        enriched = enriched.join(stops_sel, on="origin_stop", how="left").fillna({"dest_stop": "unknown", "origin_stop": "unknown"})
+        stops_sel = stops.select(
+            F.col("stop_id").alias("origin_stop_key"),
+            F.col("stop_name").alias("origin_name"),
+            F.col("parent_station"),
+        )
+        enriched = (
+            enriched.join(stops_sel, enriched.origin_stop == F.col("origin_stop_key"), "left")
+            .drop("origin_stop_key")
+            .fillna({"dest_stop": "unknown", "origin_stop": "unknown"})
+        )
 
         aggregates = (
             enriched.groupBy("origin_stop", "dest_stop", "h3", "minute")
@@ -163,12 +182,20 @@ class SilverTransformJob:
         )
 
         dataset = SparkDFDataset(aggregates)
-        result = dataset.validate(expectation_suite={
-            "expectations": [
-                {"expectation_type": "expect_column_values_to_not_be_null", "kwargs": {"column": "h3"}},
-                {"expectation_type": "expect_column_values_to_be_between", "kwargs": {"column": "active_trips", "min_value": 0}},
-            ]
-        })
+        suite = ExpectationSuite(expectation_suite_name="silver_aggregates_suite")
+        suite.add_expectation(
+            ExpectationConfiguration(
+                expectation_type="expect_column_values_to_not_be_null",
+                kwargs={"column": "h3"},
+            )
+        )
+        suite.add_expectation(
+            ExpectationConfiguration(
+                expectation_type="expect_column_values_to_be_between",
+                kwargs={"column": "active_trips", "min_value": 0},
+            )
+        )
+        result = dataset.validate(expectation_suite=suite)
         if not result.get("success"):
             raise ValueError(f"Silver data quality checks failed: {result}")
 

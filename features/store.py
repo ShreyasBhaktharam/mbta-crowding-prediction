@@ -47,7 +47,14 @@ class RedisBackend(Backend):
         data = self.client.hgetall(key)
         if not data:
             return None
-        return {k: float(v) for k, v in data.items()}
+        result = {}
+        for k, v in data.items():
+            try:
+                result[k] = float(v)  # type: ignore[assignment]
+            except (TypeError, ValueError):
+                # Keep non-numeric fields (e.g., h3) as-is
+                result[k] = v  # type: ignore[assignment]
+        return result  # type: ignore[return-value]
 
     def write(self, key: str, payload: Dict[str, float], ttl: int) -> None:
         self.client.hset(key, mapping={k: str(v) for k, v in payload.items()})
@@ -91,7 +98,13 @@ class DuckDBBackend(Backend):
         if not result:
             return None
         payload = json.loads(result[0])
-        return {k: float(v) for k, v in payload.items()}
+        result_map = {}
+        for k, v in payload.items():
+            try:
+                result_map[k] = float(v)  # type: ignore[assignment]
+            except (TypeError, ValueError):
+                result_map[k] = v  # type: ignore[assignment]
+        return result_map  # type: ignore[return-value]
 
     def write(self, key: str, payload: Dict[str, float], ttl: int) -> None:  # ttl kept for parity
         self.conn.execute("DELETE FROM online_features WHERE cache_key = ?", [key])

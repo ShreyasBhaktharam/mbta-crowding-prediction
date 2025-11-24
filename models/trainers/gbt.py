@@ -51,8 +51,10 @@ class LightGBMTrainer:
                 train_ds,
                 valid_sets=[val_ds],
                 num_boost_round=self.config.num_boost_round,
-                verbose_eval=False,
-                early_stopping_rounds=self.config.early_stopping_rounds,
+                callbacks=[
+                    lgb.early_stopping(self.config.early_stopping_rounds, verbose=False),
+                    lgb.log_evaluation(period=0),
+                ],
             )
             preds = booster.predict(X_val)
             return pinball_loss(y_val, preds, float(self.quantiles[0]))
@@ -83,8 +85,10 @@ class LightGBMTrainer:
                 train_ds,
                 num_boost_round=self.config.num_boost_round,
                 valid_sets=[lgb.Dataset(X_val, label=y_val)],
-                verbose_eval=False,
-                early_stopping_rounds=self.config.early_stopping_rounds,
+                callbacks=[
+                    lgb.early_stopping(self.config.early_stopping_rounds, verbose=False),
+                    lgb.log_evaluation(period=0),
+                ],
             )
             preds = booster.predict(X_val)
             metrics[f"val_pinball_p{int(quantile * 100)}"] = pinball_loss(y_val, preds, float(quantile))

@@ -41,6 +41,7 @@ def main() -> None:
 
     query = (
         spark.readStream.format("delta")
+        .option("skipChangeCommits", "true")
         .load(gold_path)
         .writeStream.foreachBatch(publish)
         .outputMode("update")

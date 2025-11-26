@@ -15,8 +15,8 @@ from fastapi.responses import PlainTextResponse, StreamingResponse
 from loguru import logger
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from pydantic import BaseModel, Field
-from starlette.status import HTTP_503_SERVICE_UNAVAILABLE
 from starlette.staticfiles import StaticFiles
+from starlette.status import HTTP_503_SERVICE_UNAVAILABLE
 
 from features.store import FeatureStore, get_feature_store, snapshot
 from models.registry import ModelRegistry
@@ -114,7 +114,10 @@ class ModelService:
         if self._entry is None:
             return [self._fallback(row) for row in feature_rows]
         if self._entry.model_name == "gbt" and self._models:
-            matrix = np.array([[row.get(col, 0.0) for col in self._feature_columns] for row in feature_rows], dtype=np.float32)
+            matrix = np.array(
+                [[row.get(col, 0.0) for col in self._feature_columns] for row in feature_rows],
+                dtype=np.float32,
+            )
             preds: Dict[str, np.ndarray] = {}
             for name, model in self._models.items():
                 preds[name] = model.predict(matrix)
@@ -190,7 +193,9 @@ async def predict(payload: PredictionRequest, store: FeatureStore = Depends(feat
         responses = []
         for req, preds in zip(payload.requests, predictions):
             if not preds:
-                raise HTTPException(status_code=HTTP_503_SERVICE_UNAVAILABLE, detail="Model unavailable")
+                raise HTTPException(
+                    status_code=HTTP_503_SERVICE_UNAVAILABLE, detail="Model unavailable"
+                )
             responses.append(
                 PredictionResponse(
                     origin_stop=req.origin_stop,

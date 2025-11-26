@@ -2,18 +2,19 @@
 
 import os
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Dict, Iterable, List, Optional
 
 import h3
-from great_expectations.dataset.sparkdf_dataset import SparkDFDataset
 from great_expectations.core.expectation_configuration import ExpectationConfiguration
 from great_expectations.core.expectation_suite import ExpectationSuite
-from pyspark.sql import DataFrame, SparkSession, functions as F, types as T
+from great_expectations.dataset.sparkdf_dataset import SparkDFDataset
+from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import functions as F
+from pyspark.sql import types as T
 from pyspark.sql.window import Window
 
 from .schemas import load_schema
-from .utils import DEFAULT_DATA_ROOT, resolve_path
+from .utils import DEFAULT_DATA_ROOT
 
 
 @dataclass
@@ -21,7 +22,9 @@ class BronzeIngestJob:
     spark: SparkSession
     topic: str
     data_root: str = field(default_factory=lambda: str(DEFAULT_DATA_ROOT))
-    kafka_bootstrap: str = field(default_factory=lambda: os.getenv("KAFKA_BROKER", "localhost:9092"))
+    kafka_bootstrap: str = field(
+        default_factory=lambda: os.getenv("KAFKA_BROKER", "localhost:9092")
+    )
     checkpoint_root: Optional[str] = None
     dlq_topic: Optional[str] = None
 
@@ -44,7 +47,12 @@ class BronzeIngestJob:
         good = (
             parsed.filter(F.col("payload").isNotNull())
             .select("payload.*", "kafka_ts")
-            .withColumn("event_ts", F.when(F.col("timestamp").isNotNull(), F.to_timestamp(F.col("timestamp"))).otherwise(F.col("kafka_ts")))
+            .withColumn(
+                "event_ts",
+                F.when(
+                    F.col("timestamp").isNotNull(), F.to_timestamp(F.col("timestamp"))
+                ).otherwise(F.col("kafka_ts")),
+            )
             .withColumn("ingest_ts", F.current_timestamp())
             .withColumn("date", F.to_date(F.col("event_ts")))
             .withColumn("hour", F.date_format(F.col("event_ts"), "HH"))
@@ -148,7 +156,9 @@ class SilverTransformJob:
             .withColumn("weather_hour", F.date_trunc("hour", F.col("minute")))
         )
 
-        weather_hourly = weather.withColumn("weather_hour", F.date_trunc("hour", F.col("event_ts"))).select(
+        weather_hourly = weather.withColumn(
+            "weather_hour", F.date_trunc("hour", F.col("event_ts"))
+        ).select(
             "weather_hour",
             "temp_c",
             "wind_mps",
@@ -177,7 +187,10 @@ class SilverTransformJob:
                 F.avg("wind_mps").alias("avg_wind_speed"),
                 F.avg("precip_mm").alias("avg_precip_mm"),
             )
-            .withColumn("crowding_score", F.coalesce(F.col("avg_arrival_delay_s"), F.lit(0.0)) + F.col("active_trips") * 0.1)
+            .withColumn(
+                "crowding_score",
+                F.coalesce(F.col("avg_arrival_delay_s"), F.lit(0.0)) + F.col("active_trips") * 0.1,
+            )
             .withColumn("date", F.to_date("minute"))
         )
 
@@ -200,12 +213,7 @@ class SilverTransformJob:
             raise ValueError(f"Silver data quality checks failed: {result}")
 
         silver_path = os.path.join(self.data_root, "silver")
-        (
-            aggregates.write.format("delta")
-            .mode("overwrite")
-            .partitionBy("date")
-            .save(silver_path)
-        )
+        (aggregates.write.format("delta").mode("overwrite").partitionBy("date").save(silver_path))
         return silver_path
 
 
@@ -258,13 +266,17 @@ def validate_tables(spark: SparkSession, tables: Dict[str, str]) -> Dict[str, Di
     for name, path in tables.items():
         df = spark.read.format("delta").load(path)
         dataset = SparkDFDataset(df)
-        validation = dataset.validate(expectation_suite={
-            "expectations": [
-                {"expectation_type": "expect_table_row_count_to_be_greater_than", "kwargs": {"value": 0}},
-            ]
-        })
+        validation = dataset.validate(
+            expectation_suite={
+                "expectations": [
+                    {
+                        "expectation_type": "expect_table_row_count_to_be_greater_than",
+                        "kwargs": {"value": 0},
+                    },
+                ]
+            }
+        )
         results[name] = validation
         if not validation.get("success"):
             raise ValueError(f"Validation failed for {name}: {validation}")
     return results
-

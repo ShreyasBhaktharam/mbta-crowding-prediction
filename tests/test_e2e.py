@@ -3,7 +3,6 @@ import pandas as pd
 from fastapi.testclient import TestClient
 
 import serve.app as app_module
-from features.store import FeatureStore
 from models.datasets import DatasetConfig, assemble_features, load_dataset
 from models.trainers.gbt import GBTTrainerConfig, LightGBMTrainer
 from serve.app import app, feature_store_dep
@@ -20,7 +19,12 @@ def test_end_to_end_training_and_prediction(tmp_path, monkeypatch):
             "label_p50": [3.0, 3.4, 3.8, 4.2],
             "origin_stop": ["o1", "o2", "o3", "o4"],
             "dest_stop": ["d1", "d2", "d3", "d4"],
-            "minute": ["2024-01-01T00:00:00Z", "2024-01-01T00:01:00Z", "2024-01-01T00:02:00Z", "2024-01-01T00:03:00Z"],
+            "minute": [
+                "2024-01-01T00:00:00Z",
+                "2024-01-01T00:01:00Z",
+                "2024-01-01T00:02:00Z",
+                "2024-01-01T00:03:00Z",
+            ],
             "horizon_min": [10, 10, 10, 10],
         }
     )
@@ -65,14 +69,22 @@ def test_end_to_end_training_and_prediction(tmp_path, monkeypatch):
             return None
 
         def predict(self, feature_rows):
-            matrix = np.array([[row.get(col, 0.0) for col in self.feature_columns] for row in feature_rows], dtype=np.float32)
+            matrix = np.array(
+                [[row.get(col, 0.0) for col in self.feature_columns] for row in feature_rows],
+                dtype=np.float32,
+            )
             return [
-                {"p50": float(self.p50.predict(matrix)[0]), "p90": float(self.p90.predict(matrix)[0])}
+                {
+                    "p50": float(self.p50.predict(matrix)[0]),
+                    "p90": float(self.p90.predict(matrix)[0]),
+                }
                 for _ in feature_rows
             ]
 
     app.dependency_overrides[feature_store_dep] = lambda: InlineStore()
-    monkeypatch.setattr(app_module, "model_service", InlineModelService(result["artifacts"], cfg.feature_columns))
+    monkeypatch.setattr(
+        app_module, "model_service", InlineModelService(result["artifacts"], cfg.feature_columns)
+    )
 
     client = TestClient(app)
     resp = client.post(

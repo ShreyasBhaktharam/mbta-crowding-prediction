@@ -1,9 +1,9 @@
+import io
 import os
 import zipfile
-import io
-import requests
-import pandas as pd
 
+import pandas as pd
+import requests
 
 MBTA_GTFS_URL = "https://cdn.mbta.com/MBTA_GTFS.zip"
 
@@ -22,7 +22,9 @@ def extract_tables(content: bytes, out_dir: str) -> None:
                 with zf.open(name) as f:
                     # Read all columns as strings to avoid mixed-type issues when writing Parquet
                     df = pd.read_csv(f, dtype=str, low_memory=False)
-                    df.to_parquet(os.path.join(out_dir, name.replace(".txt", ".parquet")), index=False)
+                    df.to_parquet(
+                        os.path.join(out_dir, name.replace(".txt", ".parquet")), index=False
+                    )
 
 
 def main():
@@ -34,4 +36,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

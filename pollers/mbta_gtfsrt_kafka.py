@@ -1,18 +1,19 @@
-import os
-import time
 import json
+import os
 import threading
-from typing import Optional
+import time
 
 import requests
 from confluent_kafka import Producer
 from google.transit import gtfs_realtime_pb2
+
 
 def on_delivery(err, msg):
     if err:
         print(f"Delivery failed: {err}")
     else:
         print(f"Message delivered to {msg.topic()} [{msg.partition()}] at offset {msg.offset()}")
+
 
 def create_producer() -> Producer:
     broker = os.environ.get("KAFKA_BROKER", "localhost:9092")
@@ -72,7 +73,8 @@ def poll_trip_updates(p: Producer, api_key: str, interval_s: int = 5) -> None:
                         "trip_id": getattr(tu.trip, "trip_id", None) or "",
                         "stop_id": getattr(stu, "stop_id", None) or "",
                         "arrival_delay_s": getattr(getattr(stu, "arrival", None), "delay", 0) or 0,
-                        "departure_delay_s": getattr(getattr(stu, "departure", None), "delay", 0) or 0,
+                        "departure_delay_s": getattr(getattr(stu, "departure", None), "delay", 0)
+                        or 0,
                         "timestamp": ts,
                     }
                     p.produce(topic, json.dumps(msg).encode("utf-8"), callback=on_delivery)
@@ -105,4 +107,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

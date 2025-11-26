@@ -1,24 +1,21 @@
 ﻿import argparse
 import os
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 from features.store import get_feature_store
 from spark.utils import DEFAULT_DATA_ROOT, build_spark_session
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Materialize Gold aggregates to the online feature store")
+    parser = argparse.ArgumentParser(
+        description="Materialize Gold aggregates to the online feature store"
+    )
     parser.add_argument("--data-root", default=str(DEFAULT_DATA_ROOT))
     args = parser.parse_args()
 
     spark = build_spark_session(app_name="citystream-online-materializer")
     store = get_feature_store()
     gold_path = os.path.join(args.data_root, "gold")
+    checkpoint_dir = os.path.join(args.data_root, "checkpoints", "online_features")
 
     def publish(batch_df, batch_id):  # noqa: ANN001
         rows = batch_df.select(
@@ -45,7 +42,7 @@ def main() -> None:
         .load(gold_path)
         .writeStream.foreachBatch(publish)
         .outputMode("update")
-        .option("checkpointLocation", os.path.join(args.data_root, "checkpoints", "online_features"))
+        .option("checkpointLocation", checkpoint_dir)
         .start()
     )
     query.awaitTermination()

@@ -4,7 +4,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, Tuple
 
 import lightgbm as lgb
 import numpy as np
@@ -28,11 +28,15 @@ class LightGBMTrainer:
         self.quantiles = list(config.quantiles) or [0.5]
         Path(self.config.output_dir).mkdir(parents=True, exist_ok=True)
 
-    def _split(self, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def _split(
+        self, X: np.ndarray, y: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         split = max(int(len(X) * 0.8), 1)
         return X[:split], X[split:], y[:split], y[split:]
 
-    def _tune(self, X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray, y_val: np.ndarray) -> Dict:
+    def _tune(
+        self, X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray, y_val: np.ndarray
+    ) -> Dict:
         def objective(trial: optuna.Trial) -> float:
             params = {
                 "objective": "quantile",
@@ -91,7 +95,9 @@ class LightGBMTrainer:
                 ],
             )
             preds = booster.predict(X_val)
-            metrics[f"val_pinball_p{int(quantile * 100)}"] = pinball_loss(y_val, preds, float(quantile))
+            metrics[f"val_pinball_p{int(quantile * 100)}"] = pinball_loss(
+                y_val, preds, float(quantile)
+            )
             metrics[f"val_mae_p{int(quantile * 100)}"] = mae(y_val, preds)
             metrics[f"val_rmse_p{int(quantile * 100)}"] = rmse(y_val, preds)
             out_path = Path(self.config.output_dir) / f"lgb_quantile_p{int(quantile * 100)}.txt"
@@ -101,7 +107,9 @@ class LightGBMTrainer:
 
         metadata_path = Path(self.config.output_dir) / "metadata.json"
         with metadata_path.open("w", encoding="utf-8") as f:
-            json.dump({"params": tuned_params, "quantiles": list(self.config.quantiles)}, f, indent=2)
+            json.dump(
+                {"params": tuned_params, "quantiles": list(self.config.quantiles)}, f, indent=2
+            )
         artifacts["metadata"] = str(metadata_path)
 
         return {"artifacts": artifacts, "metrics": metrics, "feature_importance": feature_imp}

@@ -4,7 +4,6 @@ import argparse
 import json
 from pathlib import Path
 
-import numpy as np
 import yaml
 
 from models.datasets import DatasetConfig, assemble_features, load_dataset

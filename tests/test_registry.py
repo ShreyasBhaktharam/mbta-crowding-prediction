@@ -1,4 +1,6 @@
-﻿from models.registry import ModelRegistry
+﻿from pathlib import Path
+
+from models.registry import ModelRegistry
 
 
 def test_registry_registers_and_reads(tmp_path):

@@ -27,7 +27,7 @@ bronze:
 	$(SPARK_SUBMIT) spark/bronze_to_silver.py --mode bronze --topic $${TOPIC:-gtfs.vehicle_positions}
 
 silver:
-	$(SPARK_SUBMIT) spark/bronze_to_silver.py --mode silver $(if $(DATE), --date $(DATE),)
+	$(SPARK_SUBMIT) spark/bronze_to_silver.py --mode silver
 
 gold:
 	$(SPARK_SUBMIT) spark/bronze_to_silver.py --mode gold --horizons 10 20 30

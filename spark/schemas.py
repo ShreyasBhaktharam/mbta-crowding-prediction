@@ -1,16 +1,17 @@
 ﻿from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any, Dict
+from pathlib import Path
+from typing import Dict, Any
 
 from pyspark.sql.types import (
-    BooleanType,
-    DoubleType,
-    IntegerType,
-    LongType,
-    StringType,
-    StructField,
     StructType,
+    StructField,
+    StringType,
+    DoubleType,
+    LongType,
+    IntegerType,
+    BooleanType,
 )
 
 from .utils import SCHEMA_DIR, load_json
@@ -62,3 +63,4 @@ def load_schema(topic: str) -> StructType:
         raise FileNotFoundError(f"Schema not found for topic {topic}: {path}")
     schema_dict = load_json(path)
     return _struct_from_json(schema_dict)
+

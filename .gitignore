@@ -37,16 +37,11 @@ data/checkpoints/
 data/dlq/
 data/gold/
 *.parquet
+reports/
+mlruns/
 
 # Models (generated)
-models/*.txt
-models/meta.json
+# (left empty intentionally so model assets in models/ can be tracked)
 
 # Node (if ever used)
 node_modules/
-
-data/gold/
-reports/
-mlruns/
-models/gbt
-models/registry.json

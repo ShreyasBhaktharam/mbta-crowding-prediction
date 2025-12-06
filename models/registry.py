@@ -26,9 +26,7 @@ class RegistryEntry:
 
 
 class ModelRegistry:
-    def __init__(
-        self, path: Path = DEFAULT_REGISTRY_PATH, tracking_uri: Optional[str] = None
-    ) -> None:
+    def __init__(self, path: Path = DEFAULT_REGISTRY_PATH, tracking_uri: Optional[str] = None) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.tracking_uri = tracking_uri or f"file:{DEFAULT_TRACKING}"
@@ -44,13 +42,7 @@ class ModelRegistry:
         with self.path.open("w", encoding="utf-8") as f:
             json.dump(entries, f, indent=2)
 
-    def register(
-        self,
-        model_name: str,
-        artifacts: Dict[str, str],
-        params: Dict[str, Any],
-        metrics: Dict[str, float],
-    ) -> RegistryEntry:
+    def register(self, model_name: str, artifacts: Dict[str, str], params: Dict[str, Any], metrics: Dict[str, float]) -> RegistryEntry:
         version = datetime.utcnow().strftime("%Y%m%d%H%M%S")
         entry = RegistryEntry(
             model_name=model_name,
@@ -80,3 +72,4 @@ class ModelRegistry:
             return None
         latest = sorted(entries, key=lambda e: e["created_at"], reverse=True)[0]
         return RegistryEntry(**latest)
+

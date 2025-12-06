@@ -4,6 +4,7 @@ import json
 import os
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Dict, Optional
 
 import duckdb
@@ -46,14 +47,7 @@ class RedisBackend(Backend):
         data = self.client.hgetall(key)
         if not data:
             return None
-        result = {}
-        for k, v in data.items():
-            try:
-                result[k] = float(v)  # type: ignore[assignment]
-            except (TypeError, ValueError):
-                # Keep non-numeric fields (e.g., h3) as-is
-                result[k] = v  # type: ignore[assignment]
-        return result  # type: ignore[return-value]
+        return {k: float(v) for k, v in data.items()}
 
     def write(self, key: str, payload: Dict[str, float], ttl: int) -> None:
         self.client.hset(key, mapping={k: str(v) for k, v in payload.items()})
@@ -97,13 +91,7 @@ class DuckDBBackend(Backend):
         if not result:
             return None
         payload = json.loads(result[0])
-        result_map = {}
-        for k, v in payload.items():
-            try:
-                result_map[k] = float(v)  # type: ignore[assignment]
-            except (TypeError, ValueError):
-                result_map[k] = v  # type: ignore[assignment]
-        return result_map  # type: ignore[return-value]
+        return {k: float(v) for k, v in payload.items()}
 
     def write(self, key: str, payload: Dict[str, float], ttl: int) -> None:  # ttl kept for parity
         self.conn.execute("DELETE FROM online_features WHERE cache_key = ?", [key])
@@ -155,23 +143,15 @@ class FeatureStore:
         self._cache_expiry[key] = now + self.ttl_seconds
         return payload
 
-    def set_features(
-        self, origin_stop: str, dest_stop: str, horizon_min: int, payload: Dict[str, float]
-    ) -> None:
+    def set_features(self, origin_stop: str, dest_stop: str, horizon_min: int, payload: Dict[str, float]) -> None:
         key = self._key(origin_stop, dest_stop, horizon_min)
         self.backend.write(key, payload, self.ttl_seconds)
         self._cache[key] = payload
         self._cache_expiry[key] = time.time() + self.ttl_seconds
 
-    def load_training_features(
-        self, horizon_min: int, start: Optional[str] = None, end: Optional[str] = None
-    ) -> pd.DataFrame:
+    def load_training_features(self, horizon_min: int, start: Optional[str] = None, end: Optional[str] = None) -> pd.DataFrame:
         spark = build_spark_session(app_name="feature-store-loader")
-        df = (
-            spark.read.format("delta")
-            .load(self.offline_path)
-            .filter(F.col("horizon_min") == horizon_min)
-        )
+        df = spark.read.format("delta").load(self.offline_path).filter(F.col("horizon_min") == horizon_min)
         if start:
             df = df.filter(F.col("minute") >= F.lit(start))
         if end:
@@ -209,9 +189,7 @@ def get_features(origin_stop: str, dest_stop: str, horizon_min: int) -> Dict[str
     return store.get_features(origin_stop, dest_stop, horizon_min)
 
 
-def load_training_features(
-    horizon_min: int, start: Optional[str] = None, end: Optional[str] = None
-) -> pd.DataFrame:
+def load_training_features(horizon_min: int, start: Optional[str] = None, end: Optional[str] = None) -> pd.DataFrame:
     store = get_feature_store()
     return store.load_training_features(horizon_min, start, end)
 

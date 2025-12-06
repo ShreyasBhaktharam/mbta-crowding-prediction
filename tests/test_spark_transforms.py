@@ -19,14 +19,7 @@ def test_silver_and_gold_jobs(tmp_path, spark_session):
     gtfs_root.mkdir(parents=True, exist_ok=True)
 
     vp_rows = [
-        (
-            "trip-1",
-            42.352,
-            -71.055,
-            12.0,
-            datetime(2024, 1, 1, 12, 0, 0),
-            datetime(2024, 1, 1, 12, 0, 0),
-        ),
+        ("trip-1", 42.352, -71.055, 12.0, datetime(2024, 1, 1, 12, 0, 0), datetime(2024, 1, 1, 12, 0, 0)),
     ]
     vp_df = spark_session.createDataFrame(
         vp_rows,
@@ -67,15 +60,11 @@ def test_silver_and_gold_jobs(tmp_path, spark_session):
     stop_times.to_parquet(gtfs_root / "stop_times.parquet", index=False)
     stops.to_parquet(gtfs_root / "stops.parquet", index=False)
 
-    silver_job = SilverTransformJob(
-        spark=spark_session, data_root=str(data_root), gtfs_root=str(gtfs_root)
-    )
+    silver_job = SilverTransformJob(spark=spark_session, data_root=str(data_root), gtfs_root=str(gtfs_root))
     silver_path = silver_job.run()
     silver_df = spark_session.read.format("delta").load(silver_path)
     assert silver_df.count() == 1
-    expected = spark_session.createDataFrame(
-        [("stop-a", 1)], schema="origin_stop string, active_trips long"
-    )
+    expected = spark_session.createDataFrame([("stop-a", 1)], schema="origin_stop string, active_trips long")
     assert_df_equality(
         silver_df.select("origin_stop", "active_trips"),
         expected,

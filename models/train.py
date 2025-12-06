@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
+import numpy as np
 import yaml
 
 from models.datasets import DatasetConfig, assemble_features, load_dataset
@@ -11,6 +12,7 @@ from models.metrics import coverage
 from models.registry import ModelRegistry
 from models.trainers.gbt import GBTTrainerConfig, LightGBMTrainer
 from models.trainers.transformer import ChronosTrainer, TransformerConfig
+from models.trainers.tft_pt import TFTTrainer, TFTTrainerConfig
 
 REPORTS_DIR = Path("reports")
 REPORTS_DIR.mkdir(exist_ok=True)
@@ -25,6 +27,9 @@ def _build_trainer(config: dict):
     if trainer_type == "transformer":
         trainer_config = TransformerConfig(**params)
         return "transformer", ChronosTrainer(trainer_config)
+    if trainer_type == "tft":
+        trainer_config = TFTTrainerConfig(**params)
+        return "tft", TFTTrainer(trainer_config)
     raise ValueError(f"Unsupported trainer type: {trainer_type}")
 
 

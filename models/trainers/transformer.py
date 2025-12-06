@@ -57,9 +57,7 @@ class ChronosTrainer:
             id_cols=["origin_stop", "dest_stop"],
             freq="1min",
         )
-        pipeline = ChronosPipeline.from_pretrained(
-            self.config.checkpoint, prediction_length=self.config.prediction_length
-        )
+        pipeline = ChronosPipeline.from_pretrained(self.config.checkpoint, prediction_length=self.config.prediction_length)
         pipeline.fit(
             dataset,
             learning_rate=self.config.learning_rate,
@@ -70,8 +68,6 @@ class ChronosTrainer:
         metrics = pipeline.evaluate(dataset)
         out_path = Path(self.config.output_dir) / "chronos.pt"
         pipeline.save(str(out_path))
-        with (Path(self.config.output_dir) / "chronos_metrics.json").open(
-            "w", encoding="utf-8"
-        ) as f:
+        with (Path(self.config.output_dir) / "chronos_metrics.json").open("w", encoding="utf-8") as f:
             json.dump(metrics, f, indent=2)
         return {"artifacts": {"chronos": str(out_path)}, "metrics": metrics}

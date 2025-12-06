@@ -8,9 +8,7 @@ from pyspark.sql import SparkSession
 from .utils import build_spark_session
 
 
-def optimize_table(
-    spark: SparkSession, path: str, zorder_cols: Optional[Iterable[str]] = None
-) -> None:
+def optimize_table(spark: SparkSession, path: str, zorder_cols: Optional[Iterable[str]] = None) -> None:
     stmt = f"OPTIMIZE delta.`{path}`"
     if zorder_cols:
         cols = ",".join(zorder_cols)

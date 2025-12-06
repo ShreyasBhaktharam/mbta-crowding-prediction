@@ -8,9 +8,7 @@ import pandas as pd
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Generate small synthetic Bronze/Silver/Gold samples"
-    )
+    parser = argparse.ArgumentParser(description="Generate small synthetic Bronze/Silver/Gold samples")
     parser.add_argument("--out", default="data")
     args = parser.parse_args()
 
@@ -54,13 +52,9 @@ def main() -> None:
     )
     wx.to_parquet(root / "bronze" / "weather.hourly" / "sample.parquet", index=False)
 
-    stops = pd.DataFrame(
-        {"stop_id": ["s1", "s2"], "stop_name": ["Alpha", "Beta"], "parent_station": [None, None]}
-    )
+    stops = pd.DataFrame({"stop_id": ["s1", "s2"], "stop_name": ["Alpha", "Beta"], "parent_station": [None, None]})
     stops.to_parquet(root / "gtfs" / "stops.parquet", index=False)
-    stop_times = pd.DataFrame(
-        {"trip_id": ["t1", "t2"], "stop_id": ["s1", "s2"], "stop_sequence": [1, 1]}
-    )
+    stop_times = pd.DataFrame({"trip_id": ["t1", "t2"], "stop_id": ["s1", "s2"], "stop_sequence": [1, 1]})
     stop_times.to_parquet(root / "gtfs" / "stop_times.parquet", index=False)
 
     print(f"Synthetic data written to {root}")

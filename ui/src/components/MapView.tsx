@@ -36,17 +36,8 @@ const MapView = ({ features, selection, onSelect }: Props) => {
   ];
 
   return (
-    <DeckGL
-      controller
-      layers={layers}
-      initialViewState={{ longitude: -71.0589, latitude: 42.3601, zoom: 11 }}
-      style={{ width: '100%', height: '100%' }}
-    >
-      <Map
-        mapboxAccessToken={MAPBOX_TOKEN}
-        mapStyle="mapbox://styles/mapbox/light-v11"
-        style={{ width: '100%', height: '100%' }}
-      />
+    <DeckGL controller layers={layers} initialViewState={{ longitude: -71.0589, latitude: 42.3601, zoom: 11 }}>
+      <Map mapboxAccessToken={MAPBOX_TOKEN} mapStyle="mapbox://styles/mapbox/light-v11" />
     </DeckGL>
   );
 };

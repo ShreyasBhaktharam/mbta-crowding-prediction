@@ -1,6 +1,12 @@
 ﻿import argparse
-import os
 import logging
+import os
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from features.store import get_feature_store
 from spark.utils import DEFAULT_DATA_ROOT, build_spark_session
@@ -18,7 +24,6 @@ def main() -> None:
     spark = build_spark_session(app_name="citystream-online-materializer")
     store = get_feature_store()
     gold_path = os.path.join(args.data_root, "gold")
-    checkpoint_dir = os.path.join(args.data_root, "checkpoints", "online_features")
 
     def publish(batch_df, batch_id):  # noqa: ANN001
         # Log batch arrival
@@ -61,11 +66,10 @@ def main() -> None:
 
     query = (
         spark.readStream.format("delta")
-        .option("skipChangeCommits", "true")
         .load(gold_path)
         .writeStream.foreachBatch(publish)
         .outputMode("update")
-        .option("checkpointLocation", checkpoint_dir)
+        .option("checkpointLocation", os.path.join(args.data_root, "checkpoints", "online_features"))
         .start()
     )
     logger.info(

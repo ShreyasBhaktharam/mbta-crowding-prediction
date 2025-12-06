@@ -1,6 +1,6 @@
-import json
 import os
 import time
+import json
 from typing import Optional
 
 import requests
@@ -90,3 +90,4 @@ if __name__ == "__main__":
     lat = float(os.environ.get("NOAA_POINT_LAT", "42.3601"))
     lon = float(os.environ.get("NOAA_POINT_LON", "-71.0589"))
     run_poll(lat, lon)
+

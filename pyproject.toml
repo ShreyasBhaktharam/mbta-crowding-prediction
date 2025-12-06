@@ -1,14 +1,13 @@
-[tool.black]
+﻿[tool.black]
 line-length = 100
-target-version = ["py39"]
+target-version = ["py311"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+select = ["E", "F", "I", "B", "UP", "N", "ANN"]
+ignore = ["ANN101", "ANN102"]
 
-[tool.ruff.lint]
-select = ["E", "F", "I"]
-ignore = ["E402", "E501", "ANN", "N", "UP", "B"]
-
-[tool.ruff.lint.isort]
-known-first-party = ["features", "spark", "serve", "models", "pollers", "tools"]
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+strict_optional = false

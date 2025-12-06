@@ -1,0 +1,13 @@
+{
+  "params": {
+    "learning_rate": 0.11852718241244925,
+    "num_leaves": 72,
+    "feature_fraction": 0.9394299081637669,
+    "bagging_fraction": 0.5580720211796559,
+    "min_data_in_leaf": 93
+  },
+  "quantiles": [
+    0.5,
+    0.9
+  ]
+}

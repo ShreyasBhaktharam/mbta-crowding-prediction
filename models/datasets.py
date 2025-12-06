@@ -41,17 +41,17 @@ def load_dataset(config: DatasetConfig) -> pd.DataFrame:
             df = df.filter(F.col("minute") >= F.lit(config.start))
         if config.end:
             df = df.filter(F.col("minute") <= F.lit(config.end))
-        pdf = df.select(
-            *(config.feature_columns + [config.label_column, "origin_stop", "dest_stop", "minute"])
-        ).toPandas()
+        pdf = (
+            df.select(*(config.feature_columns + [config.label_column, "origin_stop", "dest_stop", "minute"]))
+            .dropna(subset=[config.label_column])  # avoid training on empty labels
+            .toPandas()
+        )
         spark.stop()
     return pdf
 
 
 def assemble_features(df: pd.DataFrame, config: DatasetConfig) -> Tuple[np.ndarray, np.ndarray]:
-    missing = [
-        col for col in config.feature_columns + [config.label_column] if col not in df.columns
-    ]
+    missing = [col for col in config.feature_columns + [config.label_column] if col not in df.columns]
     if missing:
         raise ValueError(f"Columns missing from dataset: {missing}")
     features = df[config.feature_columns].fillna(0.0).values.astype(np.float32)

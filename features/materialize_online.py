@@ -64,12 +64,14 @@ def main() -> None:
                 )
         logger.info("batch_id=%s wrote=%s errors=%s", batch_id, success, errors)
 
+    checkpoint_dir = os.path.join(args.data_root, "checkpoints", "online_features")
     query = (
         spark.readStream.format("delta")
+        .option("skipChangeCommits", "true")  # Handle overwrites from Gold job
         .load(gold_path)
         .writeStream.foreachBatch(publish)
         .outputMode("update")
-        .option("checkpointLocation", os.path.join(args.data_root, "checkpoints", "online_features"))
+        .option("checkpointLocation", checkpoint_dir)
         .start()
     )
     logger.info(

@@ -97,12 +97,15 @@ class SilverTransformJob:
         return self.spark.read.parquet(path)
 
     def _h3_udf(self):
-        return F.udf(
-            lambda lat, lon: h3.geo_to_h3(lat, lon, self.h3_resolution)
-            if lat is not None and lon is not None
-            else None,
-            T.StringType(),
-        )
+        # Capture resolution in local var to avoid serializing self
+        resolution = self.h3_resolution
+
+        def h3_index(lat, lon):
+            if lat is not None and lon is not None:
+                return h3.geo_to_h3(lat, lon, resolution)
+            return None
+
+        return F.udf(h3_index, T.StringType())
 
     def run(self) -> str:
         vp = self._bronze_table("gtfs.vehicle_positions")
@@ -119,8 +122,7 @@ class SilverTransformJob:
         )
 
         tu_curated = (
-            tu.withColumn("minute", F.date_trunc("minute", F.col("event_ts")))
-            .withColumn("arrival_delay_s", F.col("arrival_delay_s").cast("double"))
+            tu.withColumn("arrival_delay_s", F.col("arrival_delay_s").cast("double"))
             .withColumn("departure_delay_s", F.col("departure_delay_s").cast("double"))
         )
 
@@ -129,7 +131,10 @@ class SilverTransformJob:
             F.lead("stop_id").over(Window.partitionBy("trip_id").orderBy("stop_sequence")),
         ).dropna(subset=["dest_stop"])
 
-        trips_with_pairs = tu_curated.join(stop_pairs, ["trip_id", "stop_id"], how="left")
+        # Select only needed columns to avoid duplicates after join
+        trips_with_pairs = tu_curated.select(
+            "trip_id", "stop_id", "arrival_delay_s", "departure_delay_s"
+        ).join(stop_pairs.select("trip_id", "stop_id", "dest_stop"), ["trip_id", "stop_id"], how="left")
 
         enriched = (
             vp_curated.join(trips_with_pairs, on="trip_id", how="left")
@@ -145,8 +150,27 @@ class SilverTransformJob:
         )
         enriched = enriched.join(weather_hourly, on="weather_hour", how="left")
 
-        stops_sel = stops.select("stop_id", F.col("stop_name").alias("origin_name"), F.col("parent_station"))
-        enriched = enriched.join(stops_sel, on="origin_stop", how="left").fillna({"dest_stop": "unknown", "origin_stop": "unknown"})
+        # Get parent station for origin
+        stops_origin = stops.select(
+            F.col("stop_id").alias("origin_stop"),
+            F.col("stop_name").alias("origin_name"),
+            F.col("parent_station").alias("origin_parent"),
+        )
+        enriched = enriched.join(stops_origin, on="origin_stop", how="left")
+
+        # Get parent station for dest
+        stops_dest = stops.select(
+            F.col("stop_id").alias("dest_stop"),
+            F.col("parent_station").alias("dest_parent"),
+        )
+        enriched = enriched.join(stops_dest, on="dest_stop", how="left")
+
+        # Use parent_station if available, otherwise keep original stop_id
+        enriched = enriched.withColumn(
+            "origin_stop", F.coalesce(F.col("origin_parent"), F.col("origin_stop"))
+        ).withColumn(
+            "dest_stop", F.coalesce(F.col("dest_parent"), F.col("dest_stop"))
+        ).fillna({"dest_stop": "unknown", "origin_stop": "unknown"})
 
         aggregates = (
             enriched.groupBy("origin_stop", "dest_stop", "h3", "minute")
@@ -164,6 +188,7 @@ class SilverTransformJob:
 
         dataset = SparkDFDataset(aggregates)
         result = dataset.validate(expectation_suite={
+            "expectation_suite_name": "silver_validation",
             "expectations": [
                 {"expectation_type": "expect_column_values_to_not_be_null", "kwargs": {"column": "h3"}},
                 {"expectation_type": "expect_column_values_to_be_between", "kwargs": {"column": "active_trips", "min_value": 0}},
@@ -232,6 +257,7 @@ def validate_tables(spark: SparkSession, tables: Dict[str, str]) -> Dict[str, Di
         df = spark.read.format("delta").load(path)
         dataset = SparkDFDataset(df)
         validation = dataset.validate(expectation_suite={
+            "expectation_suite_name": f"{name}_validation",
             "expectations": [
                 {"expectation_type": "expect_table_row_count_to_be_greater_than", "kwargs": {"value": 0}},
             ]

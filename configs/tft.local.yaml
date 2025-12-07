@@ -1,0 +1,20 @@
+dataset:
+  horizon_min: 10
+  start: null
+  end: null
+  gold_path: "data (2)/data/gold"
+trainer:
+  type: tft
+  params:
+    quantiles: [0.5, 0.9]
+    max_epochs: 1
+    learning_rate: 0.0007
+    batch_size: 16
+    hidden_size: 64
+    attention_head_size: 2
+    dropout: 0.1
+    output_dir: models/tft
+    use_gpu: true
+    max_encoder_length: 16
+    max_prediction_length: 1
+    num_workers: 0

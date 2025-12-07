@@ -1,52 +1,14 @@
-<!doctype html>
-<html>
+﻿<!doctype html>
+<html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CityStream MBTA</title>
-    <style>
-      html, body, #map { height: 100%; margin: 0; }
-      .panel { position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.9); padding: 10px; border-radius: 6px; font-family: sans-serif; }
-      .badge { display: inline-block; padding: 2px 6px; border-radius: 3px; background: #e6f4ff; color: #0958d9; margin-left: 6px; font-size: 12px; }
-    </style>
-    <script src="https://unpkg.com/deck.gl@^8.9.0/dist.min.js"></script>
-    <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v2.13.0/mapbox-gl.js"></script>
-    <link href="https://api.tiles.mapbox.com/mapbox-gl-js/v2.13.0/mapbox-gl.css" rel="stylesheet" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CityStream Dashboard</title>
+    <!-- Mapbox GL CSS -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
   </head>
   <body>
-    <div id="map"></div>
-    <div class="panel">
-      <div><strong>CityStream MBTA</strong><span class="badge">Demo</span></div>
-      <div style="margin-top:6px">
-        Origin: <input id="origin" value="place-dwnxg" />
-        Dest: <input id="dest" value="place-pktrm" />
-        Horizon (min): <input id="hz" type="number" value="10" min="5" max="30" />
-        <button id="predict">Predict</button>
-      </div>
-      <div id="out" style="margin-top:6px; font-size:14px"></div>
-    </div>
-    <script>
-      mapboxgl.accessToken = (window.MAPBOX_TOKEN || '');
-      const INITIAL_VIEW_STATE = { longitude: -71.060, latitude: 42.355, zoom: 12, pitch: 0, bearing: 0 };
-      const deckgl = new deck.DeckGL({
-        container: 'map',
-        mapStyle: 'mapbox://styles/mapbox/light-v11',
-        mapboxApiAccessToken: mapboxgl.accessToken,
-        initialViewState: INITIAL_VIEW_STATE,
-        controller: true,
-        layers: []
-      });
-      async function doPredict() {
-        const origin = document.getElementById('origin').value;
-        const dest = document.getElementById('dest').value;
-        const hz = document.getElementById('hz').value;
-        const url = `http://localhost:8000/predict?origin_stop=${encodeURIComponent(origin)}&dest_stop=${encodeURIComponent(dest)}&horizon_min=${hz}`;
-        const r = await fetch(url);
-        const j = await r.json();
-        document.getElementById('out').innerText = `P50: ${j.p50.toFixed(1)}s, P90: ${j.p90.toFixed(1)}s`;
-      }
-      document.getElementById('predict').addEventListener('click', doPredict);
-    </script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

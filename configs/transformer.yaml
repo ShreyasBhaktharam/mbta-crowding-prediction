@@ -1,0 +1,13 @@
+﻿dataset:
+  horizon_min: 10
+  gold_path: data/gold
+trainer:
+  type: transformer
+  params:
+    prediction_length: 6
+    max_epochs: 3
+    learning_rate: 0.0005
+    batch_size: 32
+    use_gpu: false
+    output_dir: models/transformer
+    checkpoint: chronos-tiny

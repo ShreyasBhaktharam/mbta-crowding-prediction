@@ -1,42 +1,102 @@
-# macOS
-.DS_Store
+# Data and checkpoints
+data/
+checkpoints/
+*.parquet
+*.delta
 
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
 *.egg-info/
-.python-version
+.installed.cfg
+*.egg
+
+# Virtual environments
 .venv/
 venv/
-.pytest_cache/
-
-# Env
+ENV/
+env/
 .env
 
-# IDE / Editor
-.vscode/
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Build outputs
+ui/dist/
+serve/static/assets/
+*.js.map
+
+# IDE and editors
 .idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+*.ipynb_checkpoints
 
 # Logs
 *.log
+logs/
 
-# Spark / Local metastore
+# Model artifacts (keep trained models, ignore temp)
+mlruns/
+mlartifacts/
+
+# Spark
+spark-warehouse/
 metastore_db/
 derby.log
 
-# Data outputs
-data/bronze/
-data/silver/
-data/chk/
-*.parquet
+# Coverage and testing
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
 
-# Models (generated)
-models/*.txt
-models/meta.json
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
-# Node (if ever used)
-node_modules/
-
-
+# Secrets and credentials
+*.pem
+*.key
+secrets/
+credentials/

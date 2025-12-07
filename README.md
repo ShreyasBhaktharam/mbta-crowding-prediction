@@ -1,85 +1,113 @@
-# CityStream (MBTA)
+﻿# CityStream MBTA Crowding Prediction
 
-Goal: Real-time pipeline for MBTA corridor forecasts with Kafka ingest, Spark streaming (Bronze→Silver), baseline quantile model, FastAPI serving, and a minimal deck.gl UI.
+CityStream ingests MBTA GTFS-RT + NOAA weather streams, curates Bronze → Silver → Gold Delta tables, trains quantile models, and serves multi-horizon crowding predictions + a deck.gl dashboard.
 
-## Quickstart
+[Architecture overview](docs/architecture.md)
 
-1) Prereqs
-- Docker Desktop
-- Python 3.10+
-- Java 11+ (for Spark)
+## Architecture Summary
 
-2) Environment
-- Set `MBTA_KEY` and `KAFKA_BROKER`.
+- **Data lake**: Redpanda ➜ Spark Structured Streaming ➜ Delta Lake tiers under `data/` with DLQ tables and Delta compaction utilities.
+- **Feature store**: Gold Delta for offline training, Redis/DuckDB for online serving with TTL caching and streaming materialization.
+- **Models**: LightGBM quantile trainer with Optuna tuning + optional Chronos/TFT transformer path, registered via MLflow + `models/registry.json`.
+- **Serving**: FastAPI w/ `/predict`, `/crowding_map` SSE, `/metrics`, plus Prometheus + Loguru logging.
+- **UI**: Vite/React/deck.gl consuming the SSE stream and REST predictions.
 
-3) Start Kafka (Redpanda) locally
+See `docs/architecture.md` for diagrams, scaling tips, and runbooks.
+
+## Environment & Bootstrap
+
 ```bash
-make up
-```
-- Console UI: http://localhost:8080
-- Kafka broker: localhost:9092
-
-4) Create topics
-```bash
-make topics
-```
-
-5) Install Python deps
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+cp .env.example .env             # fill MBTA_KEY, MAPBOX_TOKEN, etc.
+make bootstrap                   # create venv + pip install
+make topics                      # create Kafka topics in Redpanda
+python gtfs/load_static.py       # fetch GTFS parquet for Silver joins
 ```
 
-6) Run pollers (MBTA + NOAA)
-```bash
-# terminal A
-python pollers/mbta_gtfsrt_kafka.py
-# terminal B
-python pollers/noaa_hourly_kafka.py
+## Make Targets
+
+| Target | Description |
+| --- | --- |
+| `make bootstrap` | create virtualenv + install Python deps |
+| `make topics` | create Kafka topics in running Redpanda cluster |
+| `make pollers` | run MBTA + NOAA pollers locally |
+| `make bronze` | run Spark bronze streaming writer (Structured Streaming) |
+| `make silver` | run Silver batch enrichment job |
+| `make gold` | build Gold fact tables (rolling stats + labels) |
+| `make materialize_online` | stream Gold updates into Redis/DuckDB feature store |
+| `make validate_data` | run Great Expectations validations on Silver/Gold |
+| `make train` | run `python -m models.train --config configs/gbt.yaml` |
+| `make serve` | start FastAPI app (uvicorn) |
+| `make ui-build` | `npm install && npm run build` inside `ui/` |
+| `make test` | pytest (Spark + API + feature store + e2e) |
+| `make lint` | ruff/black (configured in `pyproject.toml`) |
+| `make mypy` | static type checks |
+
+## Pipeline Walkthrough
+
+1. **Ingestion (Bronze)**
+   - `python spark/bronze_to_silver.py --mode bronze --topic gtfs.vehicle_positions`
+   - Writes Delta tables in `data/bronze/<topic>/date=.../hour=...`. Invalid JSON is captured in `data/dlq/<topic>`.
+2. **Silver**
+   - `python spark/bronze_to_silver.py --mode silver` joins GTFS static parquet (`data/gtfs/`), NOAA weather, computes H3 res 8, and validates with Great Expectations.
+3. **Gold**
+   - `python spark/bronze_to_silver.py --mode gold --horizons 10 20 30` builds fact tables keyed by `(origin_stop, dest_stop, h3, minute, horizon_min)`.
+4. **Online Materialization**
+   - `python -m features.materialize_online` runs Structured Streaming on Gold Delta and pushes aggregates into Redis/DuckDB.
+5. **Training**
+   - `python -m models.train --config configs/gbt.yaml` (or `configs/transformer.yaml`). Generates reports in `reports/` and logs to MLflow.
+6. **Serving & Dashboard**
+   - `make serve` ➜ FastAPI on :8000, SSE at `/crowding_map`.
+   - `make ui-build` ➜ Vite output in `ui/dist`. FastAPI auto-serves static files when `ui/dist` exists.
+
+## Feature Store Usage
+
+```python
+from features import load_training_features, get_features
+
+batch_df = load_training_features(horizon_min=10, start="2024-01-01", end="2024-01-07")
+row = get_features("place-dwnxg", "place-pktrm", 10)
 ```
 
-7) Run Spark Bronze writer (Kafka → Parquet)
+Configure backend via `FEATURE_STORE_BACKEND=redis|duckdb`. Redis credentials controlled through `.env` values.
+
+## Model Training Configs
+
+- `configs/gbt.yaml`: LightGBM quantile trainer (Optuna tuned, multi-quantile). Runs entirely on CPU.
+- `configs/transformer.yaml`: Chronos/TFT fine-tuning (optional GPU). Docstrings outline GPU sizing + batch size tuning.
+
+Switch configs via `python -m models.train --config configs/<name>.yaml`. Registry metadata + metrics stored in `models/registry.json` and MLflow (`mlruns/`).
+
+## Serving API
+
+- `/predict` (POST) – batch prediction for `{origin_stop, dest_stop, horizon_min}` requests, returns p50/p90 (and p10/p95 for transformer models).
+- `/crowding_map` (SSE) – stream aggregated predictions for deck.gl.
+- `/metrics` – Prometheus metrics (requests, latency, cache hits, model version).
+- `/healthz` – readiness check (model available?).
+
+Dependency injection allows `tests/test_api.py` to stub the feature store + model service.
+
+## Dashboard
+
+Inside `ui/`:
+
 ```bash
-# writes to data/bronze/<topic>/
-python spark/bronze_to_silver.py --mode bronze
-# Or using spark-submit (Python):
-PYSPARK_PYTHON=$(which python) spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1 spark/bronze_to_silver.py --mode bronze --topic gtfs.vehicle_positions
+npm install
+npm run dev   # Vite dev server on 5173
+npm run build # outputs ui/dist for FastAPI static hosting
 ```
 
-8) Generate Silver features (H3 + basic joins)
-```bash
-python spark/bronze_to_silver.py --mode silver
-# Or:
-PYSPARK_PYTHON=$(which python) spark-submit spark/bronze_to_silver.py --mode silver
-```
+Set `VITE_API_BASE` + `VITE_MAPBOX_TOKEN` (Mapbox or MapLibre) in `.env` or `ui/.env.local`.
 
-9) Train baseline model
-```bash
-python models/train_baseline.py --data data/silver --out models/
-```
+## CI/CD & Containers
 
-10) Serve API
-```bash
-uvicorn serve.app:app --reload --port 8000
-```
-- Try: `curl 'http://localhost:8000/predict?origin_stop=place-dwnxg&dest_stop=place-pktrm&horizon_min=10'`
+- `docker-compose.yml` spins up Redpanda + Console, Spark master/worker, Redis, API, and UI container for full-stack local runs.
+- `.github/workflows/ci.yml` runs lint → mypy → pytest (Spark included) → `npm run build`.
 
-11) UI (static)
-- Open `ui/index.html` (set `MAPBOX_TOKEN` if using Mapbox basemap).
+## Runbooks / Troubleshooting
 
-## Topics (suggested)
-- gtfs.vehicle_positions
-- gtfs.trip_updates
-- weather.hourly
-- events.city (optional)
+- **Data quality failure**: `make validate_data`, inspect `data/dlq/<topic>` for schema rejects, replay via `tools/generate_sample_data.py` or Kafka console.
+- **Missing features**: ensure Redis reachable, or set `FEATURE_STORE_BACKEND=duckdb` and rerun `make materialize_online`.
+- **Model rollback**: copy desired entry to top of `models/registry.json`, ensure artifacts exist, restart `make serve` (reload happens automatically on file change).
+- **GPU training**: set `trainer.params.use_gpu=true` in `configs/transformer.yaml`, provision CUDA-capable host, adjust `batch_size` by VRAM (16GB ≈ 128 sequences, 24GB ≈ 256 sequences).
 
-## Paths
-- data/bronze/<topic>/date=YYYY-MM-DD/*.parquet
-- data/silver/date=YYYY-MM-DD/*.parquet
-- models/*.txt (LightGBM) and models/meta.json
-
-## Notes
-- This scaffold favors fast iteration locally. Switch to Delta Lake and a registry later.
-- H3 res defaults to 8; adjust with `--h3_res`.
-- The Spark job is pure Python (PySpark). It auto-downloads the Kafka connector via `spark.jars.packages` and works with `spark-submit`.
-
+For more details see `docs/architecture.md`.

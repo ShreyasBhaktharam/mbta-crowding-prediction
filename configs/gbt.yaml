@@ -1,0 +1,12 @@
+﻿dataset:
+  horizon_min: 10
+  start: null
+  end: null
+  gold_path: data/gold
+trainer:
+  type: gbt
+  params:
+    quantiles: [0.5, 0.9]
+    num_boost_round: 150
+    n_trials: 5
+    output_dir: models/gbt

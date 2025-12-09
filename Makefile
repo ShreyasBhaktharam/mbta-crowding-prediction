@@ -42,7 +42,7 @@ serve:
 	uvicorn serve.app:app --host 0.0.0.0 --port 8000 --reload
 
 ui-build:
-	cd ui && npm install --legacy-peer-deps && npm run build && cp -r dist/* ../serve/static/
+	cd ui && npm install && npm run build
 
 validate_data:
 	$(PYTHON) spark/bronze_to_silver.py --mode validate

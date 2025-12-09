@@ -1,6 +1,6 @@
-artifact_location: file:///Users/shreyas/Documents/citystream/mlruns/0
-creation_time: 1763923638079
+artifact_location: file:///mnt/d/mbta-crowding-prediction-feature-pipeline-overhaul/mbta-crowding-prediction-feature-pipeline-overhaul/mlruns/0
+creation_time: 1764236757250
 experiment_id: '0'
-last_update_time: 1763923638079
+last_update_time: 1764236757250
 lifecycle_stage: active
 name: Default

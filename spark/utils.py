@@ -19,7 +19,7 @@ def build_spark_session(app_name: str = "citystream", extra_conf: Optional[Dict[
         SparkSession.builder.appName(app_name)
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
-        .config("spark.sql.shuffle.partitions", os.getenv("SPARK_SHUFFLE_PARTITIONS", "64"))
+        .config("spark.sql.shuffle.partitions", os.getenv("SPARK_SHUFFLE_PARTITIONS", "200"))
         .config("spark.streaming.stopGracefullyOnShutdown", "true")
         .config("spark.sql.session.timeZone", "UTC")
         .config("spark.jars.packages", os.getenv(

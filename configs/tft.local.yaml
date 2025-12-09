@@ -2,7 +2,7 @@ dataset:
   horizon_min: 10
   start: null
   end: null
-  gold_path: "data (2)/data/gold"
+  gold_path: "data (3)/data/gold"
 trainer:
   type: tft
   params:

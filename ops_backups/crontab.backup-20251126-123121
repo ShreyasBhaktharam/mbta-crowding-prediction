@@ -1,9 +1,0 @@
-SHELL=/bin/zsh
-PATH=/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
-WORKDIR=/Users/shreyas/Documents/citystream
-
-# Silver every 10 min
-*/10 * * * * cd $WORKDIR && mkdir -p logs && source .venv/bin/activate && make silver DATE=2025-11-26 >> logs/silver.cron.log 2>&1
-
-# Gold every 20 min
-*/25 * * * * cd $WORKDIR && mkdir -p logs && source .venv/bin/activate && make gold >> logs/gold.cron.log 2>&1

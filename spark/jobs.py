@@ -62,6 +62,7 @@ class BronzeIngestJob:
             good.writeStream.format("delta")
             .partitionBy("date", "hour")
             .option("checkpointLocation", checkpoint)
+            .option("mergeSchema", "true")
             .outputMode("append")
             .start(bronze_path)
         )
@@ -72,6 +73,7 @@ class BronzeIngestJob:
             dlq_query = (
                 bad.writeStream.format("delta")
                 .option("checkpointLocation", os.path.join(checkpoint, "dlq"))
+                .option("mergeSchema", "true")
                 .outputMode("append")
                 .start(dlq_path)
             )
@@ -86,10 +88,15 @@ class SilverTransformJob:
     data_root: str = field(default_factory=lambda: str(DEFAULT_DATA_ROOT))
     h3_resolution: int = 8
     gtfs_root: Optional[str] = None
+    date_filter: Optional[str] = None
 
     def _bronze_table(self, topic: str) -> DataFrame:
         path = os.path.join(self.data_root, "bronze", topic)
-        return self.spark.read.format("delta").load(path)
+        df = self.spark.read.format("delta").load(path)
+        # Apply date filter if specified to reduce memory usage
+        if self.date_filter:
+            df = df.filter(F.col("date") == self.date_filter)
+        return df
 
     def _load_gtfs(self, table: str) -> DataFrame:
         root = self.gtfs_root or os.path.join(self.data_root, "gtfs")

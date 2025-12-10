@@ -20,6 +20,7 @@ def main() -> None:
     parser.add_argument("--gtfs-root", default=None)
     parser.add_argument("--h3-res", type=int, default=8)
     parser.add_argument("--horizons", nargs="*", type=int, default=[10, 20, 30])
+    parser.add_argument("--date", default=None, help="Filter to specific date (YYYY-MM-DD)")
     args = parser.parse_args()
 
     spark = build_spark_session(app_name=f"citystream-{args.mode}")
@@ -38,6 +39,7 @@ def main() -> None:
             data_root=args.data_root,
             gtfs_root=args.gtfs_root,
             h3_resolution=args.h3_res,
+            date_filter=args.date,
         )
         job.run()
     elif args.mode == "gold":

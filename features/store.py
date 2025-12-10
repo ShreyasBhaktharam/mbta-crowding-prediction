@@ -161,6 +161,9 @@ class FeatureStore:
     def _key(self, origin: str, dest: str, horizon: int) -> str:
         return f"{origin}:{dest}:{horizon}"
 
+    def _timestamped_key(self, origin: str, dest: str, horizon: int, timestamp: int) -> str:
+        return f"{origin}:{dest}:{horizon}:{timestamp}"
+
     def _default_payload(self) -> Dict[str, any]:
         return {
             "active_trips": 0.0,
@@ -253,6 +256,52 @@ class FeatureStore:
         self.backend.write(key, payload, self.ttl_seconds)
         self._cache[key] = payload
         self._cache_expiry[key] = time.time() + self.ttl_seconds
+
+    def set_features_timestamped(self, origin_stop: str, dest_stop: str, horizon_min: int, timestamp: int, payload: Dict[str, float]) -> None:
+        """Write features with timestamp suffix for TFT historical sequence queries."""
+        key = self._timestamped_key(origin_stop, dest_stop, horizon_min, timestamp)
+        self.backend.write(key, payload, self.ttl_seconds)
+
+    def get_historical_features(self, origin_stop: str, dest_stop: str, horizon_min: int, lookback: int = 16) -> Optional[list]:
+        """
+        Query historical feature sequences from Redis timestamped keys.
+        Returns list of (timestamp, features) tuples sorted by timestamp (oldest first).
+        """
+        if not isinstance(self.backend, RedisBackend):
+            return None
+
+        pattern = f"{origin_stop}:{dest_stop}:{horizon_min}:*"
+        keys = []
+        cursor = 0
+        # Scan for timestamped keys matching this route/horizon
+        while True:
+            cursor, batch = self.backend.client.scan(cursor=cursor, match=pattern)
+            keys.extend(batch)
+            if cursor == 0:
+                break
+
+        if not keys:
+            return None
+
+        # Extract timestamps and sort
+        timestamped_features = []
+        for key in keys:
+            parts = key.split(":")
+            if len(parts) == 4:
+                try:
+                    timestamp = int(parts[3])
+                    payload = self.backend.read(key)
+                    if payload:
+                        timestamped_features.append((timestamp, payload))
+                except (ValueError, IndexError):
+                    continue
+
+        if not timestamped_features:
+            return None
+
+        # Sort by timestamp and take last N entries
+        timestamped_features.sort(key=lambda x: x[0])
+        return timestamped_features[-lookback:]
 
     def load_training_features(self, horizon_min: int, start: Optional[str] = None, end: Optional[str] = None) -> pd.DataFrame:
         spark = build_spark_session(app_name="feature-store-loader")

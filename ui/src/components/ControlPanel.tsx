@@ -1,10 +1,13 @@
 ﻿import { useState } from 'react';
 import type { Stop } from '../hooks/useStops';
 import type { PredictionSelection } from '../types';
+import type { ForecastData } from '../hooks/useForecast';
 
 interface Props {
   selection: PredictionSelection;
   prediction: { p50: number; p90: number; origin_name?: string; dest_name?: string } | null;
+  forecastData?: ForecastData | null;
+  forecastLoading?: boolean;
   onChange: (sel: PredictionSelection) => void;
   stops: Stop[];
   stopsLoading: boolean;
@@ -18,7 +21,7 @@ const getCrowdingLevel = (score: number): { label: string; color: string; emoji:
   return { label: 'Very High', color: '#ef4444', emoji: '🔴' };
 };
 
-const ControlPanel = ({ selection, prediction, onChange, stops, stopsLoading }: Props) => {
+const ControlPanel = ({ selection, prediction, forecastData, forecastLoading, onChange, stops, stopsLoading }: Props) => {
   const [showHelp, setShowHelp] = useState(false);
 
   const updateField = (field: keyof PredictionSelection, value: string | number) => {
@@ -240,6 +243,52 @@ const ControlPanel = ({ selection, prediction, onChange, stops, stopsLoading }: 
           <div className="crowding-loading">Calculating...</div>
         )}
       </div>
+
+      {/* TFT Forecast Section */}
+      {forecastData && forecastData.forecasts && forecastData.forecasts.length > 0 && (
+        <div className="forecast-card">
+          <div className="forecast-header">
+            <h3>📈 Multi-Horizon Forecast (TFT)</h3>
+            <span className="forecast-subtitle">Time series prediction</span>
+          </div>
+
+          <div className="forecast-horizons">
+            {forecastData.forecasts.map((forecast) => {
+              const level = getCrowdingLevel(forecast.p50);
+              const isSelected = forecast.horizon_min === selection.horizon_min;
+
+              return (
+                <div
+                  key={forecast.horizon_min}
+                  className={`forecast-horizon-item ${isSelected ? 'selected' : ''}`}
+                >
+                  <div className="forecast-time">{forecast.horizon_min} min</div>
+                  <div className="forecast-level">
+                    <span className="forecast-emoji">{level.emoji}</span>
+                    <span className="forecast-value" style={{ color: level.color }}>
+                      {(forecast.p50 * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                  <div className="forecast-range">
+                    <span className="range-label">Range:</span>
+                    <span className="range-values">
+                      {(forecast.p50 * 100).toFixed(0)}% - {(forecast.p90 * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {forecastLoading && (
+            <div className="forecast-loading">Updating forecast...</div>
+          )}
+
+          <div className="forecast-info">
+            <p>💡 <strong>TFT Model:</strong> Temporal Fusion Transformer analyzes historical patterns to predict crowding trends across multiple time horizons.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

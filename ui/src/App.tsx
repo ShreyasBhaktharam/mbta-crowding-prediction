@@ -4,6 +4,7 @@ import ControlPanel from './components/ControlPanel';
 import TrendChart from './components/TrendChart';
 import useCrowdingStream from './hooks/useCrowdingStream';
 import useStops from './hooks/useStops';
+import useForecast from './hooks/useForecast';
 import type { PredictionSelection } from './types';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
@@ -23,6 +24,16 @@ const App = () => {
     origin_name?: string;
     dest_name?: string;
   } | null>(null);
+
+  // Fetch TFT forecast data
+  const { forecastData, loading: forecastLoading } = useForecast({
+    apiBase: API_BASE,
+    originStop: selection.origin_stop,
+    destStop: selection.dest_stop,
+    horizonMin: selection.horizon_min,
+    enabled: true,
+    refreshInterval: 30000,
+  });
 
   const fetchPrediction = async (sel: PredictionSelection) => {
     try {
@@ -67,10 +78,12 @@ const App = () => {
           selection={selection}
           onChange={setSelection}
           prediction={prediction}
+          forecastData={forecastData}
+          forecastLoading={forecastLoading}
           stops={stops}
           stopsLoading={stopsLoading}
         />
-        <TrendChart data={recentPoints} />
+        <TrendChart data={recentPoints} forecastData={forecastData} />
       </div>
     </div>
   );

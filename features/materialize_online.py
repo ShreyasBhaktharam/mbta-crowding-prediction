@@ -25,13 +25,36 @@ def main() -> None:
     store = get_feature_store()
     gold_path = os.path.join(args.data_root, "gold")
 
+    # Check if Gold table exists and has data
+    logger.info(f"Checking Gold table at {gold_path}")
+    try:
+        test_df = spark.read.format("delta").load(gold_path)
+        row_count = test_df.count()
+        logger.info(f"Gold table exists with {row_count} rows")
+        logger.info(f"Columns: {test_df.columns}")
+        if row_count == 0:
+            logger.error("Gold table is empty! Cannot materialize.")
+            return
+    except Exception as e:
+        logger.error(f"Failed to read Gold table: {e}")
+        return
+
     def publish(batch_df, batch_id):  # noqa: ANN001
         # Log batch arrival
+        logger.info(f"batch_id={batch_id} triggered, checking columns...")
+        logger.info(f"Available columns: {batch_df.columns}")
+
+        # Check if minute column exists
+        if "minute" not in batch_df.columns:
+            logger.error("minute column not found in batch_df!")
+            return
+
         rows = batch_df.select(
             "origin_stop",
             "dest_stop",
             "h3",
             "horizon_min",
+            "minute",
             "rolling_mean_7d",
             "hist_p50",
             "hist_p90",
@@ -50,6 +73,9 @@ def main() -> None:
                     "hist_p90": float(row.hist_p90 or 0.0),
                     "h3": row.h3 or "unknown",
                 }
+                # Write both timestamped key (for TFT sequences) and current key (for LightGBM)
+                timestamp = int(row.minute.timestamp()) if row.minute else 0
+                store.set_features_timestamped(row.origin_stop, row.dest_stop, int(row.horizon_min), timestamp, payload)
                 store.set_features(row.origin_stop, row.dest_stop, int(row.horizon_min), payload)
                 success += 1
             except Exception as exc:  # pragma: no cover - defensive logging
@@ -68,10 +94,13 @@ def main() -> None:
     query = (
         spark.readStream.format("delta")
         .option("skipChangeCommits", "true")  # Handle overwrites from Gold job
+        .option("startingVersion", "0")  # Start from beginning of Delta log
+        .option("maxFilesPerTrigger", "1")  # Process incrementally
         .load(gold_path)
         .writeStream.foreachBatch(publish)
         .outputMode("update")
         .option("checkpointLocation", checkpoint_dir)
+        .trigger(availableNow=True)  # Process all available data immediately
         .start()
     )
     logger.info(

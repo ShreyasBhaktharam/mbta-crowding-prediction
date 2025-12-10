@@ -210,5 +210,177 @@
     },
     "created_at": "2025-12-03T06:53:19.772347",
     "run_id": "5908d3ca8766407f88294c0caff8eaf1"
+  },
+  {
+    "model_name": "gbt",
+    "version": "20251209023458",
+    "artifacts": {
+      "p50": "models/gbt/lgb_quantile_p50.txt",
+      "p90": "models/gbt/lgb_quantile_p90.txt",
+      "metadata": "models/gbt/metadata.json"
+    },
+    "params": {
+      "dataset": {
+        "horizon_min": 10,
+        "start": null,
+        "end": null,
+        "gold_path": "data (3)/data/gold"
+      },
+      "trainer": {
+        "type": "gbt",
+        "params": {
+          "quantiles": [
+            0.5,
+            0.9
+          ],
+          "num_boost_round": 150,
+          "n_trials": 5,
+          "output_dir": "models/gbt"
+        }
+      }
+    },
+    "metrics": {
+      "val_pinball_p50": 0.0053295826872647835,
+      "val_mae_p50": 0.010659165374529567,
+      "val_rmse_p50": 0.035548980387617814,
+      "val_pinball_p90": 0.00398934212016395,
+      "val_mae_p90": 0.027089885604190088,
+      "val_rmse_p90": 0.05420399326370853,
+      "coverage_baseline": 1.0
+    },
+    "created_at": "2025-12-09T02:34:58.330394",
+    "run_id": "bef92e0e171d4d44ab43b7e5754abdb3"
+  },
+  {
+    "model_name": "tft",
+    "version": "20251209023849",
+    "artifacts": {
+      "checkpoint": "models/tft/tft.ckpt"
+    },
+    "params": {
+      "dataset": {
+        "end": null,
+        "gold_path": "data (3)/data/gold",
+        "horizon_min": 10,
+        "start": null
+      },
+      "trainer": {
+        "params": {
+          "attention_head_size": 2,
+          "batch_size": 16,
+          "dropout": 0.1,
+          "hidden_size": 64,
+          "learning_rate": 0.0007,
+          "max_encoder_length": 16,
+          "max_epochs": 1,
+          "max_prediction_length": 1,
+          "num_workers": 0,
+          "output_dir": "models/tft",
+          "quantiles": [
+            0.5,
+            0.9
+          ],
+          "use_gpu": true
+        },
+        "type": "tft"
+      }
+    },
+    "metrics": {
+      "val_loss": 0.02511199191212654,
+      "val_SMAPE": 0.15829606354236603,
+      "val_MAE": 0.024334603920578957,
+      "val_RMSE": 0.03340590000152588,
+      "val_MAPE": 0.12827089428901672
+    },
+    "created_at": "2025-12-09T02:38:49.144393",
+    "run_id": "f85da0daf71944df8c2204a646848b9c"
+  },
+  {
+    "model_name": "tft",
+    "version": "20251209024130",
+    "artifacts": {
+      "checkpoint": "models/tft/tft.ckpt"
+    },
+    "params": {
+      "dataset": {
+        "end": null,
+        "gold_path": "data (3)/data/gold",
+        "horizon_min": 20,
+        "start": null
+      },
+      "trainer": {
+        "params": {
+          "attention_head_size": 2,
+          "batch_size": 16,
+          "dropout": 0.1,
+          "hidden_size": 64,
+          "learning_rate": 0.0007,
+          "max_encoder_length": 16,
+          "max_epochs": 1,
+          "max_prediction_length": 1,
+          "num_workers": 0,
+          "output_dir": "models/tft",
+          "quantiles": [
+            0.5,
+            0.9
+          ],
+          "use_gpu": true
+        },
+        "type": "tft"
+      }
+    },
+    "metrics": {
+      "val_loss": 0.028589744120836258,
+      "val_SMAPE": 0.1823790967464447,
+      "val_MAE": 0.027528470382094383,
+      "val_RMSE": 0.03178584948182106,
+      "val_MAPE": 0.15585073828697205
+    },
+    "created_at": "2025-12-09T02:41:30.219954",
+    "run_id": "30aa4ffce3744bb19296850d361a7b54"
+  },
+  {
+    "model_name": "tft",
+    "version": "20251209024424",
+    "artifacts": {
+      "checkpoint": "models/tft/tft.ckpt"
+    },
+    "params": {
+      "dataset": {
+        "end": null,
+        "gold_path": "data (3)/data/gold",
+        "horizon_min": 30,
+        "start": null
+      },
+      "trainer": {
+        "params": {
+          "attention_head_size": 2,
+          "batch_size": 16,
+          "dropout": 0.1,
+          "hidden_size": 64,
+          "learning_rate": 0.0007,
+          "max_encoder_length": 16,
+          "max_epochs": 1,
+          "max_prediction_length": 1,
+          "num_workers": 0,
+          "output_dir": "models/tft",
+          "quantiles": [
+            0.5,
+            0.9
+          ],
+          "use_gpu": true
+        },
+        "type": "tft"
+      }
+    },
+    "metrics": {
+      "val_loss": 0.02903672493994236,
+      "val_SMAPE": 0.1650802493095398,
+      "val_MAE": 0.02545257844030857,
+      "val_RMSE": 0.0333033986389637,
+      "val_MAPE": 0.12283052504062653
+    },
+    "created_at": "2025-12-09T02:44:24.846468",
+    "run_id": "43f4df0537cf41fc95e82dd5f3fba8a7"
   }
 ]

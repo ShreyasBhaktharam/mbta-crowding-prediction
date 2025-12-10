@@ -1,10 +1,10 @@
 {
   "params": {
-    "learning_rate": 0.11852718241244925,
-    "num_leaves": 72,
-    "feature_fraction": 0.9394299081637669,
-    "bagging_fraction": 0.5580720211796559,
-    "min_data_in_leaf": 93
+    "learning_rate": 0.09515808884973118,
+    "num_leaves": 95,
+    "feature_fraction": 0.6498360543232106,
+    "bagging_fraction": 0.7505529650162223,
+    "min_data_in_leaf": 106
   },
   "quantiles": [
     0.5,

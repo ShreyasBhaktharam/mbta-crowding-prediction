@@ -38,10 +38,12 @@ try:  # pragma: no cover - optional for TFT
     import torch
     from pytorch_forecasting.models import TemporalFusionTransformer
     TFT_AVAILABLE = True
-except Exception:  # pragma: no cover
+    logger.info("TFT dependencies loaded successfully")
+except Exception as e:  # pragma: no cover
     TFT_AVAILABLE = False
     torch = None
     TemporalFusionTransformer = None
+    logger.warning(f"TFT dependencies not available: {e}")
 
 DEFAULT_FEATURES = [
     "active_trips",
@@ -130,6 +132,14 @@ class ModelService:
                 self._mtime = mtime
                 MODEL_VERSION.labels(model=entry.model_name, version=entry.version).set(1)
 
+            # Additionally load TFT model for /forecast endpoint if not already loaded
+            if self._tft is None:
+                tft_entry = self.registry.latest(model_name="tft")
+                if tft_entry:
+                    logger.info("Loading TFT model %s version %s", tft_entry.model_name, tft_entry.version)
+                    self._load_tft_model(tft_entry)
+                    MODEL_VERSION.labels(model=tft_entry.model_name, version=tft_entry.version).set(1)
+
     def _load_entry(self, entry) -> None:
         with self._lock:
             self._entry = entry
@@ -146,16 +156,24 @@ class ModelService:
                 if artifact and os.path.exists(artifact):
                     self._chronos = ChronosPipeline.load(artifact)
             elif entry.model_name == "tft" and TFT_AVAILABLE:
+                # TFT loading happens in _load_tft_model, but keep this branch for consistency
+                pass
+            else:
+                self._models = {}
+
+    def _load_tft_model(self, entry) -> None:
+        """Load TFT model separately from GBT."""
+        with self._lock:
+            if entry.model_name == "tft" and TFT_AVAILABLE:
                 artifact = entry.artifacts.get("checkpoint")
                 if artifact and os.path.exists(artifact):
                     logger.info(f"Loading TFT checkpoint from {artifact}")
-                    self._tft = TemporalFusionTransformer.load_from_checkpoint(artifact)
+                    # PyTorch 2.6+ requires weights_only=False for models with custom classes
+                    self._tft = TemporalFusionTransformer.load_from_checkpoint(artifact, weights_only=False)
                     self._tft.eval()  # Set to inference mode
                     if torch.cuda.is_available():
                         self._tft = self._tft.cuda()
                     logger.info("TFT model loaded successfully")
-            else:
-                self._models = {}
 
     def predict(self, feature_rows: List[Dict[str, float]]) -> List[Dict[str, float]]:
         self.refresh()
@@ -193,8 +211,10 @@ class ModelService:
         Generate TFT forecasts for multiple horizons.
         Returns list of forecasts, each containing predictions for requested horizons.
         """
+        logger.info(f"forecast_tft called: TFT_AVAILABLE={TFT_AVAILABLE}, self._tft={self._tft is not None}")
         if not TFT_AVAILABLE or self._tft is None:
             # Return fallback forecasts
+            logger.warning(f"TFT not available! TFT_AVAILABLE={TFT_AVAILABLE}, model_loaded={self._tft is not None}")
             return [[{"horizon_min": h, "p50": 0.0, "p90": 0.0} for h in horizons] for _ in historical_sequences]
 
         all_forecasts = []
@@ -225,19 +245,52 @@ class ModelService:
                     # Take last encoder_len timesteps
                     seq_features = seq_features[-encoder_len:]
 
-                # For TFT, we need to create a proper input format
-                # Since TFT was trained with max_prediction_length=1, we'll do iterative forecasting
+                # Run actual TFT inference
+                # Build input batch dict that TFT expects
+                # TFT requires: x_cat, x_cont, encoder_length, decoder_length, encoder_target, etc.
+
+                # Convert features to tensor: (batch_size=1, seq_len=16, n_features)
+                encoder_cont = torch.tensor([seq_features], dtype=torch.float32)
+
+                # Build minimal batch dict for TFT
+                # Based on pytorch-forecasting's batch structure
+                batch = {
+                    "encoder_cont": encoder_cont,  # (1, 16, n_features)
+                    "encoder_cat": torch.zeros((1, 16, 0), dtype=torch.long),  # No categorical features
+                    "decoder_cont": torch.zeros((1, 1, len(feature_names)), dtype=torch.float32),  # Empty decoder for 1-step ahead
+                    "decoder_cat": torch.zeros((1, 1, 0), dtype=torch.long),
+                    "encoder_lengths": torch.tensor([16], dtype=torch.long),  # Note: plural
+                    "decoder_lengths": torch.tensor([1], dtype=torch.long),  # Note: plural
+                    "encoder_target": encoder_cont[:, :, 0:1],  # Use first feature as target proxy
+                    "decoder_target": torch.zeros((1, 1, 1), dtype=torch.float32),
+                    "target_scale": torch.tensor([[0.0, 1.0]], dtype=torch.float32),  # (batch_size, 2) for (center, scale)
+                }
+
+                # Move to GPU if available
+                if torch.cuda.is_available() and next(self._tft.parameters()).is_cuda:
+                    batch = {k: v.cuda() if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
+
+                # TFT forward pass
+                with torch.no_grad():
+                    output = self._tft(batch)
+                    # output['prediction'] shape: (batch_size, prediction_length, n_quantiles)
+                    # For max_prediction_length=1: (1, 1, 2) where quantiles are [0.5, 0.9]
+                    predictions = output['prediction'].cpu().numpy()
+
+                # predictions[0, 0, :] gives [p50, p90] for the single prediction step
+                p50_base = float(predictions[0, 0, 0])
+                p90_base = float(predictions[0, 0, 1])
+
+                # For multiple horizons, we'll use the single-step prediction as baseline
+                # and scale by horizon distance (simple heuristic for multi-horizon)
                 horizon_forecasts = []
                 for horizon in horizons:
-                    # For now, use rolling mean as a simple baseline from TFT
-                    # In production, you'd run actual TFT inference here
-                    # This requires proper batch formatting with TFT's TimeSeriesDataSet structure
-                    last_features = hist_seq[-1][1] if hist_seq else {}
-                    baseline = last_features.get("hist_p50", 0.0)
+                    # Scale predictions slightly by horizon (further horizons have more uncertainty)
+                    horizon_factor = 1.0 + (horizon / 100.0)  # e.g., 30min -> 1.3x factor
                     horizon_forecasts.append({
                         "horizon_min": horizon,
-                        "p50": float(baseline),
-                        "p90": float(baseline * 1.2)
+                        "p50": float(p50_base * horizon_factor),
+                        "p90": float(p90_base * horizon_factor)
                     })
 
                 all_forecasts.append(horizon_forecasts)
@@ -418,6 +471,12 @@ async def forecast(payload: ForecastRequest, store: FeatureStore = Depends(featu
             # Query historical sequences for this route
             historical_seq = store.get_historical_features(origin_id, dest_id, req.horizon_min, lookback=16)
 
+            # Debug logging
+            if historical_seq is None:
+                logger.warning(f"No historical data found for {origin_id}->{dest_id} horizon={req.horizon_min}")
+            else:
+                logger.info(f"Found {len(historical_seq)} historical datapoints for {origin_id}->{dest_id} horizon={req.horizon_min}")
+
             # Generate forecasts for multiple horizons
             forecasts = model_service.forecast_tft([historical_seq], horizons)[0]
 
@@ -451,7 +510,6 @@ async def crowding_map():
             payload = []
             for key, values in snapshot_data.items():
                 parts = key.split(":")
-                # Skip timestamped keys (4 parts) - only process current keys (3 parts)
                 if len(parts) != 3:
                     continue
                 origin, dest, horizon = parts
